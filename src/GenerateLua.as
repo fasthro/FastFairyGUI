@@ -30,13 +30,15 @@ public final class GenerateLua implements IPublishHandler {
     /** 导出路径 */
     private var _epath:String;
     /** class 前缀 */
-    private var _prefix:String;
+    private var _classPrefix:String;
     /** 模版文件路径 */
     private var _tpath:String;
     /** define 基础路径 */
     private var _dpath:String;
     /** 组件精准导出(例如：.asButton) */
     private var _spas:Boolean;
+    /** 字段后缀 */
+    private var _filedPrefix:String;
 
     public function GenerateLua(editor:IFairyGUIEditor) {
         this._editor = editor
@@ -62,8 +64,15 @@ public final class GenerateLua implements IPublishHandler {
         }
 
         /** class 前缀 */
-        this._prefix = this._editor.project.customProperties["gen_lua_prefix"]
-        if (this._prefix == null) this._prefix = "";
+        this._classPrefix = this._editor.project.customProperties["gen_lua_prefix"]
+        if (this._classPrefix == null) this._classPrefix = "";
+
+        /** 字段前缀 */
+        this._filedPrefix = this._editor.project.customProperties["gen_lua_filed_prefix"]
+        if (this._filedPrefix == null){
+            this._editor.alert("请设置 gen_lua_filed_prefix 自定义属性值!");
+            return false;
+        }
 
         /** 加载模版文件 */
         this._tpath = combinePath(this._editor.project.basePath, "/template/lua.template");
@@ -167,9 +176,13 @@ public final class GenerateLua implements IPublishHandler {
             if (!ignore(memberInfo.name)) {
                 var field:String = "self." + memberInfo.name;
                 var code:String = getComponentChildCode(memberInfo.type, memberInfo.name);
-                childList.push("\t" + field + " = " + code);
+                if (this._filedPrefix == "") {
+                    childList.push("\t" + field + " = " + code);
+                } else {
+                    childList.push("\t" + field + this._filedPrefix + " = " + code);
+                }
             }
-            log("type: " + memberInfo.type + " name:" + memberInfo.name)
+            log("type: " + memberInfo.type + " name:" + memberInfo.name + "  " + this._filedPrefix)
         }
 
         template = template.replace("{export_child}", childList.join("\r\n"));
@@ -189,9 +202,9 @@ public final class GenerateLua implements IPublishHandler {
     }
 
     private function getClassName(cname:String):String {
-        if (this._prefix == "")
+        if (this._classPrefix == "")
             return "/" + cname + ".lua";
-        return "/" + this._prefix + "_" + cname + ".lua";
+        return "/" + this._classPrefix + "_" + cname + ".lua";
     }
 
     private function getComponentChildCode(t:String, name:String):String {
