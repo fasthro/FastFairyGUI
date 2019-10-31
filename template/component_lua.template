@@ -1,0 +1,29 @@
+--[[ aotu generated from fastfairy plugin]]
+
+local component = fui.extension_class({export_com_type})
+local url = "{export_url}"
+
+function component:ctor()
+{export_child}
+end
+
+function component:bind_context(context)
+	self.event_context = context
+end
+
+function component.on_click(context)
+	local self = context.sender.self
+	local field = context.sender.field
+	if self ~= nil then
+		if self.event_context ~= nil then
+			local func = self.event_context[field .. "_onclick"]
+			if func ~= nil then
+				func(context)
+			end
+		end
+	end
+end
+
+fui.register_extension(url, component)
+
+return component

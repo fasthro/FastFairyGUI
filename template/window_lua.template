@@ -1,0 +1,33 @@
+--[[
+ * @Author: 
+ * @Description: 
+ ]]
+local window = fui.window_class()
+
+window.layer = FLayer.Window
+window.com_name = "{component_name}"
+window.pack_name = "{package_name}"
+window.depend_pack_names = nil
+window.enabled_log = true
+window.log_mark = ""
+
+function window:ctor()
+end
+
+function window:OnInit()
+end
+
+function window:OnShown()
+	self.ui:bind_context(self)
+end
+
+function window:OnRefresh()
+end
+
+function window:OnHide()
+end
+
+function window:OnDestory()
+end
+
+return window

@@ -29,16 +29,21 @@ public final class GenerateLua implements IPublishHandler {
     private var _ebpath:String;
     /** 导出路径 */
     private var _epath:String;
-    /** class 前缀 */
-    private var _classPrefix:String;
     /** 模版文件路径 */
-    private var _tpath:String;
+    private var _ctpath:String;
     /** define 基础路径 */
     private var _dpath:String;
     /** 组件精准导出(例如：.asButton) */
     private var _spas:Boolean;
-    /** 字段后缀 */
-    private var _filedPrefix:String;
+    /** lua文件 前缀缀 */
+    private var _prefix:String;
+
+    /** 是否生成 window */
+    private var _genwindow:Boolean;
+    /** window 路径 */
+    private var _wpath:String;
+    /** window 模路径 */
+    private var _wtpath:String;
 
     public function GenerateLua(editor:IFairyGUIEditor) {
         this._editor = editor
@@ -64,20 +69,13 @@ public final class GenerateLua implements IPublishHandler {
         }
 
         /** class 前缀 */
-        this._classPrefix = this._editor.project.customProperties["gen_lua_prefix"]
-        if (this._classPrefix == null) this._classPrefix = "";
+        this._prefix = this._editor.project.customProperties["gen_lua_prefix"]
+        if (this._prefix == null) this._prefix = "";
 
-        /** 字段前缀 */
-        this._filedPrefix = this._editor.project.customProperties["gen_lua_filed_prefix"]
-        if (this._filedPrefix == null){
-            this._editor.alert("请设置 gen_lua_filed_prefix 自定义属性值!");
-            return false;
-        }
-
-        /** 加载模版文件 */
-        this._tpath = combinePath(this._editor.project.basePath, "/template/lua.template");
-        if (!existsPath(this._tpath)) {
-            this._editor.alert("lua.template does not exist!");
+        /**component模版文件路径 */
+        this._ctpath = combinePath(this._editor.project.basePath, "/template/component_lua.template");
+        if (!existsPath(this._ctpath)) {
+            this._editor.alert("component_lua.template does not exist!");
             return false;
         }
 
@@ -86,7 +84,27 @@ public final class GenerateLua implements IPublishHandler {
         if (this._dpath == null) this._dpath = "";
 
         /** 组件精准导出 */
-        this._spas = this._editor.project.customProperties["gen_lua_spas"] == "true"
+        this._spas = this._editor.project.customProperties["gen_lua_spas"] == "true";
+
+        /** 生成window */
+        this._genwindow = this._editor.project.customProperties["gen_lua_window"] == "true";
+
+
+        if (this._genwindow == true) {
+            /** window 导出路径 */
+            this._wpath = this._editor.project.customProperties["gen_lua_window_path"];
+            if (this._wpath == null) {
+                this._editor.alert("gen_lua_window_path：null");
+                return false;
+            }
+
+            /**window模版文件路径 */
+            this._wtpath = combinePath(this._editor.project.basePath, "/template/window_lua.template");
+            if (!existsPath(this._wtpath)) {
+                this._editor.alert("window_lua.template does not exist!");
+                return false;
+            }
+        }
 
         /** 执行导出 */
         init();
@@ -123,6 +141,7 @@ public final class GenerateLua implements IPublishHandler {
                 log(str);
             }
             exportClass(classInfo);
+            if (this._genwindow) exportWindowClass(classInfo);
         }
     }
 
@@ -166,7 +185,7 @@ public final class GenerateLua implements IPublishHandler {
         var classUrl:String = "ui://" + this._data.targetUIPackage.name + "/" + comName;
 
         // template context
-        var template:String = FileTool.readByteByFile(new File((this._tpath))).toString();
+        var template:String = FileTool.readByteByFile(new File((this._ctpath))).toString();
 
         template = template.replace("{export_com_type}", comType);
         template = template.replace("{export_url}", classUrl);
@@ -174,20 +193,47 @@ public final class GenerateLua implements IPublishHandler {
         var childList:Array = [];
         for each(var memberInfo:Object in classInfo.members) {
             if (!ignore(memberInfo.name)) {
-                var field:String = "self." + memberInfo.name;
+                var field:String = "self.ui." + memberInfo.name;
                 var code:String = getComponentChildCode(memberInfo.type, memberInfo.name);
-                if (this._filedPrefix == "") {
-                    childList.push("\t" + field + " = " + code);
-                } else {
-                    childList.push("\t" + field + this._filedPrefix + " = " + code);
-                }
+                childList.push("\t" + field + " = " + code);
+
+                // 事件绑定
+                var button:Boolean = isButton(memberInfo.name)
+                if (button) childList.push("\tfui.bind_click_event(self.ui." + memberInfo.name + ", self, " + '\"' + memberInfo.name + '\", self.on_click)');
             }
-            log("type: " + memberInfo.type + " name:" + memberInfo.name + "  " + this._filedPrefix)
+            log("type: " + memberInfo.type + " name:" + memberInfo.name)
         }
 
         template = template.replace("{export_child}", childList.join("\r\n"));
 
         FileTool.writeFile(classPath, template);
+    }
+
+    private function exportWindowClass(classInfo:Object):void {
+        // component name
+        var comName:String = classInfo.className;
+        if (iswindow(comName)) {
+            var fp:String = combinePath(this._wpath, comName + ".lua");
+            if (!existsPath(fp)) {
+                var template:String = FileTool.readByteByFile(new File((this._wtpath))).toString();
+                template = template.replace("{component_name}", comName);
+                template = template.replace("{package_name}", this._pname);
+
+                FileTool.writeFile(fp, template);
+            }
+        }
+    }
+
+    private function iswindow(name:String):Boolean {
+        var cnl:int = name.length;
+        var len:int = "_window".length;
+        var si:int = cnl - len;
+        if (si > 0) {
+            if (name.substr(si, len) == "_window") {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function ignore(name:String):Boolean {
@@ -202,9 +248,9 @@ public final class GenerateLua implements IPublishHandler {
     }
 
     private function getClassName(cname:String):String {
-        if (this._classPrefix == "")
+        if (this._prefix == "")
             return "/" + cname + ".lua";
-        return "/" + this._classPrefix + "_" + cname + ".lua";
+        return "/" + this._prefix + "_" + cname + ".lua";
     }
 
     private function getComponentChildCode(t:String, name:String):String {
@@ -273,6 +319,17 @@ public final class GenerateLua implements IPublishHandler {
             }
         }
         return "asCom"
+    }
+
+    private function isButton(name:String):Boolean {
+        var index:int = name.indexOf("_");
+        if (index > -1) {
+            var ts:String = name.substr(0, index);
+            if (ts == "btn") {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 打印日志 */
