@@ -30,4 +30,6 @@ end
 function window:OnDestory()
 end
 
+{callback_function}
+
 return window

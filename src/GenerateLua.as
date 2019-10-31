@@ -201,7 +201,6 @@ public final class GenerateLua implements IPublishHandler {
                 var button:Boolean = isButton(memberInfo.name)
                 if (button) childList.push("\tfui.bind_click_event(self.ui." + memberInfo.name + ", self, " + '\"' + memberInfo.name + '\", self.on_click)');
             }
-            log("type: " + memberInfo.type + " name:" + memberInfo.name)
         }
 
         template = template.replace("{export_child}", childList.join("\r\n"));
@@ -218,6 +217,17 @@ public final class GenerateLua implements IPublishHandler {
                 var template:String = FileTool.readByteByFile(new File((this._wtpath))).toString();
                 template = template.replace("{component_name}", comName);
                 template = template.replace("{package_name}", this._pname);
+
+                var callList:Array = [];
+                for each(var memberInfo:Object in classInfo.members) {
+                    if (!ignore(memberInfo.name)) {
+                        // 生成事件回调
+                        var button:Boolean = isButton(memberInfo.name)
+                        if (button) callList.push("function window:" + memberInfo.name + "_onclick(context)\nend");
+                    }
+                }
+
+                template = template.replace("{callback_function}", callList.join("\r\n"));
 
                 FileTool.writeFile(fp, template);
             }

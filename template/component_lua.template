@@ -18,7 +18,7 @@ function component.on_click(context)
 		if self.event_context ~= nil then
 			local func = self.event_context[field .. "_onclick"]
 			if func ~= nil then
-				func(context)
+				func(self.event_context, context)
 			end
 		end
 	end
